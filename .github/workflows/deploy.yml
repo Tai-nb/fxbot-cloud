@@ -1,0 +1,36 @@
+name: Triển khai bảng điều khiển (Cloudflare Pages)
+on:
+  push:
+    branches: [main]
+    paths: ["site/**", "functions/**", "cf.py", ".github/workflows/deploy.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  PROJECT: fxbot-tn
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      DASH_PASSWORD: ${{ secrets.DASH_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: pip install -q requests
+      - name: Tạo kho dữ liệu KV và cấu hình
+        run: python cf.py "$PROJECT"
+      - name: Tạo dự án Pages (lần đầu)
+        run: npx --yes wrangler@4 pages project create "$PROJECT" --production-branch main || echo "Dự án đã có"
+      - name: Đặt mật khẩu bảng điều khiển
+        run: |
+          test -n "$DASH_PASSWORD" || { echo "Thiếu secret DASH_PASSWORD"; exit 1; }
+          printf '%s' "$DASH_PASSWORD" | npx --yes wrangler@4 pages secret put DASH_PASSWORD --project-name "$PROJECT"
+      - name: Triển khai
+        run: npx --yes wrangler@4 pages deploy --project-name "$PROJECT" --branch main --commit-dirty=true

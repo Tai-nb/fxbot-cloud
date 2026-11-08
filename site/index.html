@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FXBot – Bảng tín hiệu</title>
+<style>
+  :root { --bg:#f6f7f9; --panel:#fff; --fg:#14171a; --muted:#667085; --line:#e4e7ec; --ok:#12805c; --bad:#c4320a; --warn:#b54708; --accent:#2563eb; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0f1115; --panel:#171a21; --fg:#e8eaed; --muted:#98a2b3; --line:#2a2f3a; --ok:#3ccb8f; --bad:#ff7a59; --warn:#fdb022; --accent:#6ea8fe; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 22px; margin: 4px 0 2px; }
+  .sub { color: var(--muted); font-size: 13px; }
+  .status { display:flex; align-items:center; gap:8px; margin:12px 0 16px; padding:10px 12px; border-radius:10px; background:var(--panel); border:1px solid var(--line); }
+  .dot { width:10px; height:10px; border-radius:50%; flex:none; }
+  .tiles { display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:10px; margin-bottom:16px; }
+  .tile { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
+  .tile .k { color:var(--muted); font-size:12px; }
+  .tile .v { font-size:22px; font-weight:600; font-variant-numeric: tabular-nums; }
+  h2 { font-size:16px; margin:22px 0 8px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:10px; }
+  .sig-head { display:flex; justify-content:space-between; align-items:baseline; gap:8px; flex-wrap:wrap; }
+  .side { font-weight:700; padding:2px 8px; border-radius:6px; color:#fff; font-size:13px; }
+  .BUY { background:var(--ok); } .SELL { background:var(--bad); }
+  .lv { display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:6px; margin-top:8px; font-variant-numeric: tabular-nums; }
+  .lv div span { display:block; color:var(--muted); font-size:11px; }
+  .warn { color:var(--warn); font-size:13px; margin-top:6px; }
+  .small { color:var(--muted); font-size:12px; margin-top:6px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; font-variant-numeric: tabular-nums; }
+  th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th { color:var(--muted); font-weight:500; }
+  .tbl { overflow-x:auto; background:var(--panel); border:1px solid var(--line); border-radius:10px; }
+  .num { text-align:right; }
+  .log { font-family: ui-monospace, Menlo, monospace; font-size:12px; white-space:pre-wrap; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px; max-height:320px; overflow:auto; }
+  .bars { display:flex; align-items:flex-end; gap:2px; height:48px; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:8px; }
+  .bars i { flex:1; background:var(--accent); opacity:.7; min-height:3px; border-radius:2px; }
+  .bars i.e { background:var(--bad); opacity:1; }
+  .bars i.s { background:var(--ok); opacity:1; }
+  .empty { color:var(--muted); padding:8px 0; }
+  footer { color:var(--muted); font-size:12px; margin:28px 0 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>FXBot – Bảng tín hiệu</h1>
+  <div class="sub">Bot quét tự động mỗi 15 phút trên máy chủ GitHub, báo qua Telegram. Trang tự làm mới mỗi phút.</div>
+
+  <div class="status"><span class="dot" id="dot"></span><span id="statusText">Đang tải…</span></div>
+
+  <div class="tiles">
+    <div class="tile"><div class="k">Lần quét cuối (giờ VN)</div><div class="v" id="lastScan">—</div></div>
+    <div class="tile"><div class="k">Tín hiệu hôm nay</div><div class="v" id="today">—</div></div>
+    <div class="tile"><div class="k">Tổng tín hiệu đã báo</div><div class="v" id="total">—</div></div>
+    <div class="tile"><div class="k">Chiến lược đang chạy</div><div class="v" id="nStrat">—</div></div>
+    <div class="tile"><div class="k">Rủi ro mỗi lệnh</div><div class="v" id="risk">—</div></div>
+  </div>
+
+  <h2>Lượt quét gần đây</h2>
+  <div class="bars" id="bars"></div>
+  <div class="small">Mỗi cột là một lượt quét. Xanh lá: có tín hiệu mới. Đỏ: lỗi dữ liệu.</div>
+
+  <h2>Tín hiệu mới nhất</h2>
+  <div id="signals"></div>
+
+  <h2>Chiến lược đang chạy</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Cặp</th><th>Khung</th><th>Chiến lược</th><th class="num">R:R</th><th class="num">Thắng %</th><th class="num">Lệnh</th><th class="num">Kỳ vọng</th></tr></thead>
+    <tbody id="strats"></tbody>
+  </table></div>
+  <div class="small">Số liệu backtest giai đoạn kiểm tra. Kỳ vọng tính theo R (lãi/lỗ trung bình mỗi lệnh so với mức rủi ro).</div>
+
+  <h2>Nhật ký bot</h2>
+  <div class="log" id="log"></div>
+
+  <footer>Giá theo Yahoo Finance (vàng theo GC=F), có thể lệch giá sàn – luôn kiểm tra trên MT5 trước khi vào lệnh.<br>Phân tích tham khảo, không phải lời khuyên đầu tư.</footer>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const fmt = (v, d) => (v == null || v === "" ? "—" : (typeof v === "number" ? v.toFixed(d) : String(v)));
+function minutesSince(s) { // "YYYY-MM-DD HH:MM" giờ VN
+  if (!s) return Infinity;
+  const t = new Date(s.replace(" ", "T") + ":00+07:00");
+  return (Date.now() - t.getTime()) / 60000;
+}
+function render(d) {
+  const q = d.quet || {};
+  const age = minutesSince(q.lan_quet_cuoi);
+  const errs = (q.loi || []).length;
+  let color = "var(--ok)", txt = `Bot hoạt động bình thường – quét lần cuối ${Math.round(age)} phút trước.`;
+  if (!q.lan_quet_cuoi) { color = "var(--muted)"; txt = "Bot chưa chạy lượt quét nào."; }
+  else if (age > 50) { color = "var(--bad)"; txt = `Bot đã ${Math.round(age)} phút chưa quét – có thể GitHub đang trễ lịch hoặc lỗi.`; }
+  else if (errs) { color = "var(--warn)"; txt = `Lượt quét cuối có ${errs} lỗi dữ liệu: ${(q.loi || []).slice(0, 3).join("; ")}`; }
+  $("dot").style.background = color; $("statusText").textContent = txt;
+  $("lastScan").textContent = q.lan_quet_cuoi ? q.lan_quet_cuoi.slice(11) + " " + q.lan_quet_cuoi.slice(8, 10) + "/" + q.lan_quet_cuoi.slice(5, 7) : "—";
+  const sigs = d.tin_hieu || [];
+  const todayVN = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
+  $("today").textContent = sigs.filter((s) => (s.time_vn || "").startsWith(todayVN)).length;
+  $("total").textContent = sigs.length;
+  $("nStrat").textContent = (d.chien_luoc || []).length;
+  $("risk").textContent = d.cai_dat ? d.cai_dat.rui_ro + "%" : "—";
+
+  const bars = $("bars"); bars.replaceChildren();
+  const hist = (d.lich_su_quet || []).slice(-96);
+  hist.forEach((h) => { const i = el("i", h.e ? "e" : h.n ? "s" : ""); i.style.height = (h.e || h.n ? 100 : 35) + "%"; i.title = `${h.t}: ${h.n} tín hiệu, ${h.e} lỗi`; bars.append(i); });
+  if (!hist.length) bars.append(el("span", "empty", "Chưa có dữ liệu"));
+
+  const box = $("signals"); box.replaceChildren();
+  if (!sigs.length) box.append(el("div", "empty", "Chưa có tín hiệu nào."));
+  sigs.slice(0, 20).forEach((s) => {
+    const c = el("div", "card");
+    const head = el("div", "sig-head");
+    const left = el("div"); left.append(el("span", "side " + s.side, s.side), document.createTextNode(` ${s.symbol} ${s.tf}`));
+    head.append(left, el("span", "small", s.time_vn || ""));
+    const lv = el("div", "lv");
+    [["Entry", s.entry], ["SL", s.sl], ["TP", s.tp], ["Lot", String(s.lot || "").split(" ")[0]]].forEach(([k, v]) => { const x = el("div"); x.append(el("span", null, k), document.createTextNode(v == null || v === "" ? "—" : String(v))); lv.append(x); });
+    c.append(head, lv);
+    if (s.canh_bao_tin) c.append(el("div", "warn", s.canh_bao_tin.trim()));
+    const lot = String(s.lot || ""); if (lot.includes("VƯỢT MỨC")) c.append(el("div", "warn", lot.slice(lot.indexOf("⚠️"))));
+    c.append(el("div", "small", `${s.strategy || ""} · R:R 1:${s.rr} · ${s.backtest || ""}`));
+    box.append(c);
+  });
+
+  const tb = $("strats"); tb.replaceChildren();
+  (d.chien_luoc || []).forEach((s) => {
+    const tr = el("tr");
+    [s.symbol, s.tf, s.ten, "1:" + s.rr, fmt(s.thang, 1), fmt(s.so_lenh, 0), (s.ky_vong > 0 ? "+" : "") + fmt(s.ky_vong, 2) + "R"].forEach((v, i) => tr.append(el("td", i >= 3 ? "num" : "", v)));
+    tb.append(tr);
+  });
+  $("log").textContent = (d.nhat_ky || []).join("\n") || "Chưa có ghi chép.";
+}
+async function load() {
+  try {
+    const r = await fetch("/api/data", { cache: "no-store" });
+    render(await r.json());
+  } catch (e) {
+    $("dot").style.background = "var(--bad)"; $("statusText").textContent = "Không tải được dữ liệu: " + e.message;
+  }
+}
+load(); setInterval(load, 60000);
+</script>
+</body>
+</html>

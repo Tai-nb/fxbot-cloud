@@ -1,0 +1,7 @@
+state/
+__pycache__/
+*.pyc
+wrangler.toml
+.wrangler/
+bot/telegram_token.txt
+bot/telegram_chat_id.txt

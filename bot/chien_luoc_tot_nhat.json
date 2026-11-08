@@ -1,0 +1,176 @@
+[
+  {
+    "symbol": "XAUUSDm",
+    "tf": "H4",
+    "strategy": "ema_cross",
+    "name_vi": "Giao cắt EMA theo xu hướng",
+    "params": {
+      "fast": 20,
+      "slow": 50
+    },
+    "sl_atr": 2.0,
+    "rr": 2.0,
+    "test_winrate": 48.1,
+    "test_trades": 27,
+    "test_exp_r": 0.312,
+    "test_pf": 1.6,
+    "test_maxdd_r": 4.0,
+    "train_winrate": 42.6
+  },
+  {
+    "symbol": "XAUUSDm",
+    "tf": "M15",
+    "strategy": "rsi_pullback",
+    "name_vi": "RSI hồi về theo xu hướng",
+    "params": {
+      "level": 30
+    },
+    "sl_atr": 1.5,
+    "rr": 2.0,
+    "test_winrate": 44.0,
+    "test_trades": 25,
+    "test_exp_r": 0.262,
+    "test_pf": 1.47,
+    "test_maxdd_r": 4.4,
+    "train_winrate": 40.4
+  },
+  {
+    "symbol": "XAUUSDm",
+    "tf": "H1",
+    "strategy": "rsi_pullback",
+    "name_vi": "RSI hồi về theo xu hướng",
+    "params": {
+      "level": 35
+    },
+    "sl_atr": 2.0,
+    "rr": 2.0,
+    "test_winrate": 41.7,
+    "test_trades": 60,
+    "test_exp_r": 0.126,
+    "test_pf": 1.22,
+    "test_maxdd_r": 9.4,
+    "train_winrate": 43.8
+  },
+  {
+    "symbol": "GBPUSDm",
+    "tf": "H4",
+    "strategy": "bb_reversion",
+    "name_vi": "Bollinger đảo chiều (đi ngang)",
+    "params": {
+      "k": 2.0
+    },
+    "sl_atr": 2.0,
+    "rr": 2.0,
+    "test_winrate": 41.4,
+    "test_trades": 58,
+    "test_exp_r": 0.201,
+    "test_pf": 1.34,
+    "test_maxdd_r": 13.0,
+    "train_winrate": 40.8
+  },
+  {
+    "symbol": "GBPCHFm",
+    "tf": "H4",
+    "strategy": "bb_reversion",
+    "name_vi": "Bollinger đảo chiều (đi ngang)",
+    "params": {
+      "k": 2.0
+    },
+    "sl_atr": 2.0,
+    "rr": 3.0,
+    "test_winrate": 39.6,
+    "test_trades": 48,
+    "test_exp_r": 0.208,
+    "test_pf": 1.38,
+    "test_maxdd_r": 5.1,
+    "train_winrate": 41.1
+  },
+  {
+    "symbol": "CADJPYm",
+    "tf": "H4",
+    "strategy": "bb_reversion",
+    "name_vi": "Bollinger đảo chiều (đi ngang)",
+    "params": {
+      "k": 2.5
+    },
+    "sl_atr": 1.5,
+    "rr": 2.0,
+    "test_winrate": 38.7,
+    "test_trades": 31,
+    "test_exp_r": 0.174,
+    "test_pf": 1.3,
+    "test_maxdd_r": 6.2,
+    "train_winrate": 38.0
+  },
+  {
+    "symbol": "EURJPYm",
+    "tf": "H4",
+    "strategy": "donchian_breakout",
+    "name_vi": "Phá vỡ kênh Donchian",
+    "params": {
+      "n": 20
+    },
+    "sl_atr": 1.5,
+    "rr": 2.0,
+    "test_winrate": 37.5,
+    "test_trades": 72,
+    "test_exp_r": 0.138,
+    "test_pf": 1.23,
+    "test_maxdd_r": 9.0,
+    "train_winrate": 37.9
+  },
+  {
+    "symbol": "GBPJPY",
+    "tf": "H4",
+    "strategy": "stoch_pullback",
+    "name_vi": "Stochastic hồi về theo xu hướng",
+    "params": {
+      "level": 30
+    },
+    "sl_atr": 2.0,
+    "rr": 2.0,
+    "test_winrate": 42.4,
+    "test_trades": 33,
+    "test_exp_r": 0.195,
+    "test_pf": 1.36,
+    "test_maxdd_r": 5.0,
+    "train_winrate": 44.6,
+    "train_trades": 74
+  },
+  {
+    "symbol": "EURAUD",
+    "tf": "M15",
+    "strategy": "stoch_pullback",
+    "name_vi": "Stochastic hồi về theo xu hướng",
+    "params": {
+      "level": 30
+    },
+    "sl_atr": 1.5,
+    "rr": 2.0,
+    "test_winrate": 41.7,
+    "test_trades": 48,
+    "test_exp_r": 0.232,
+    "test_pf": 1.41,
+    "test_maxdd_r": 5.0,
+    "train_winrate": 41.3,
+    "train_trades": 92
+  },
+  {
+    "symbol": "XAUUSD",
+    "tf": "H1",
+    "strategy": "donchian_breakout",
+    "name_vi": "Phá vỡ kênh Donchian",
+    "params": {
+      "n": 55
+    },
+    "sl_atr": 2.0,
+    "rr": 2.0,
+    "test_winrate": 41.4,
+    "test_trades": 70,
+    "test_exp_r": 0.186,
+    "test_pf": 1.34,
+    "test_maxdd_r": 7.2,
+    "train_winrate": 41.4,
+    "train_trades": 174
+  }
+]

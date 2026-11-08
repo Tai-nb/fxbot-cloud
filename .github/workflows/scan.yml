@@ -1,0 +1,44 @@
+name: Quét tín hiệu
+on:
+  schedule:
+    - cron: "1,16,31,46 * * * *"   # giờ UTC; GitHub có thể chạy trễ vài phút
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: scan
+  cancel-in-progress: false
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      STATE_DIR: ${{ github.workspace }}/state
+      TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -q -r requirements.txt
+      - name: Khôi phục trạng thái bot (tín hiệu đã gửi, nhật ký)
+        uses: actions/cache/restore@v4
+        with:
+          path: state
+          key: state-${{ github.run_id }}
+          restore-keys: state-
+      - name: Quét tín hiệu và gửi Telegram
+        run: python bot/scanner.py
+      - name: Cập nhật bảng điều khiển
+        if: always()
+        run: python build_data.py
+      - name: Lưu trạng thái
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: state
+          key: state-${{ github.run_id }}
