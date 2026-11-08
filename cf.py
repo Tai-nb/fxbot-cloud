@@ -18,7 +18,7 @@ def check_token():
     tok, acc = creds()
     v = requests.get(f"{API}/user/tokens/verify", headers={"Authorization": f"Bearer {tok}"}, timeout=30).json()
     print(f"Token dài {len(tok)} ký tự, dạng token Cloudflare: {tok.startswith('cf')}, "
-          f"Cloudflare xác nhận: {v.get('success')} {v.get('result', {}).get('status', '')} {v.get('errors') or ''}; "
+          f"Cloudflare xác nhận: {v.get('success')} {(v.get('result') or {}).get('status', '')} {v.get('errors') or ''}; "
           f"Account ID dài {len(acc)} ký tự")
     return bool(v.get("success"))
 
