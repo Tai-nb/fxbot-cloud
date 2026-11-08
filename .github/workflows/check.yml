@@ -1,0 +1,34 @@
+name: Kiểm tra kết nối
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      DASH_PASSWORD: ${{ secrets.DASH_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -q -r requirements.txt
+      - name: Dạng các mục bảo mật (không in giá trị)
+        run: |
+          python - <<'PY'
+          import os, re
+          def shape(n):
+              v = os.environ.get(n, "")
+              return f"{n}: dài {len(v)}, dạng Telegram(số:chữ)={bool(re.fullmatch(r'\d+:[\w-]+', v.strip()))}, bắt đầu 'cf'={v.strip().startswith('cf')}, có khoảng trắng/xuống dòng={v != v.strip() or ' ' in v.strip()}"
+          for n in ["TELEGRAM_TOKEN", "TELEGRAM_CHAT_ID", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID", "DASH_PASSWORD"]:
+              print(shape(n))
+          PY
+      - name: Gửi tin Telegram thử
+        run: python bot/scanner.py --test
+        env:
+          STATE_DIR: ${{ github.workspace }}/state
