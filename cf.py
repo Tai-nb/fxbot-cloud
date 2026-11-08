@@ -13,6 +13,16 @@ def creds():
     return (tok, acc) if tok and acc else (None, None)
 
 
+def check_token():
+    """Kiểm tra token (không in token ra log)."""
+    tok, acc = creds()
+    v = requests.get(f"{API}/user/tokens/verify", headers={"Authorization": f"Bearer {tok}"}, timeout=30).json()
+    print(f"Token dài {len(tok)} ký tự, dạng token Cloudflare: {tok.startswith('cf')}, "
+          f"Cloudflare xác nhận: {v.get('success')} {v.get('result', {}).get('status', '')} {v.get('errors') or ''}; "
+          f"Account ID dài {len(acc)} ký tự")
+    return bool(v.get("success"))
+
+
 def kv_namespace_id():
     tok, acc = creds()
     if not tok:
@@ -47,6 +57,7 @@ if __name__ == "__main__":
     # Dùng khi triển khai bảng: in ra wrangler.toml có id kho KV
     import sys
     project = sys.argv[1] if len(sys.argv) > 1 else "fxbot-tn"
+    check_token()
     ns = kv_namespace_id()
     if not ns:
         sys.exit("Thiếu CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID trong GitHub Secrets")
