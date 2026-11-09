@@ -40,6 +40,20 @@ def kv_namespace_id():
     return r["result"]["id"]
 
 
+def kv_get(key):
+    """Đọc 1 khoá trong KV (None nếu chưa có hoặc thiếu khoá API)."""
+    tok, acc = creds()
+    if not tok:
+        return None
+    ns = kv_namespace_id()
+    r = requests.get(f"{API}/accounts/{acc}/storage/kv/namespaces/{ns}/values/{key}",
+                     headers={"Authorization": f"Bearer {tok}"}, timeout=30)
+    if r.status_code == 404:
+        return None
+    r.raise_for_status()
+    return r.text
+
+
 def kv_put(key, text):
     tok, acc = creds()
     if not tok:
@@ -63,5 +77,6 @@ if __name__ == "__main__":
         sys.exit("Thiếu CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID trong GitHub Secrets")
     open("wrangler.toml", "w").write(
         f'name = "{project}"\npages_build_output_dir = "site"\ncompatibility_date = "2025-06-01"\n\n'
-        f'[[kv_namespaces]]\nbinding = "FXDATA"\nid = "{ns}"\n')
+        f'[[kv_namespaces]]\nbinding = "FXDATA"\nid = "{ns}"\n\n'
+        f'[[services]]\nbinding = "HEN_GIO"\nservice = "fxbot-hen-gio"\n')
     print("wrangler.toml đã tạo với KV", ns[:6] + "…")

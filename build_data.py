@@ -30,12 +30,15 @@ def main():
     import sys
     sys.path.insert(0, BOT)
     import config as C
+    import dieu_khien as DK
     from strategies import NAMES_VI
+    DK.ap_dung(C, DK.tai() if cf.creds()[0] else {})
 
     status = load("trang_thai_quet.json", {})
     hist = load("lich_su_quet.json", [])
     if status.get("lan_quet_cuoi") and (not hist or hist[-1].get("t") != status["lan_quet_cuoi"]):
-        hist.append({"t": status["lan_quet_cuoi"], "n": status.get("tin_hieu_moi", 0), "e": len(status.get("loi", []))})
+        hist.append({"t": status["lan_quet_cuoi"], "n": status.get("tin_hieu_moi", 0), "e": len(status.get("loi", [])),
+                     **({"p": 1} if status.get("tam_dung") else {})})
     hist = hist[-700:]
     with open(os.path.join(STATE, "lich_su_quet.json"), "w", encoding="utf-8") as f:
         json.dump(hist, f)
@@ -53,7 +56,7 @@ def main():
         "lich_su_quet": hist[-200:],
         "tin_hieu": list(reversed(sigs)),
         "nhat_ky": list(reversed(lines("nhat_ky.txt", 60))),
-        "chien_luoc": [dict(symbol="".join(c for c in s["symbol"].upper() if c.isalpha())[:6], tf=s["tf"],
+        "chien_luoc": [dict(ma=DK.ma_chien_luoc(s), symbol="".join(c for c in s["symbol"].upper() if c.isalpha())[:6], tf=s["tf"],
                             ten=s.get("name_vi") or NAMES_VI.get(s["strategy"], s["strategy"]), rr=s["rr"], sl_atr=s["sl_atr"],
                             thang=s.get("test_winrate"), so_lenh=s.get("test_trades"), ky_vong=s.get("test_exp_r"))
                        for s in strategies],

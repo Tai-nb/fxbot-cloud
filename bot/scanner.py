@@ -113,6 +113,18 @@ def giu_may_thuc():
 def scan():
     giu_may_thuc()
     strategies = load(os.path.join(HERE, "chien_luoc_tot_nhat.json"), [])
+    dk = {}
+    if os.environ.get("CLOUDFLARE_API_TOKEN"):          # chạy trên GitHub: đọc cài đặt từ bảng điều khiển
+        import dieu_khien as DK
+        dk = DK.tai()
+        DK.ap_dung(C, dk)
+        if dk.get("tam_dung"):
+            save(P("trang_thai_quet.json"), dict(lan_quet_cuoi=now_vn().strftime("%Y-%m-%d %H:%M"),
+                                                 tin_hieu_moi=0, loi=[], tam_dung=True))
+            print("Bot đang tạm dừng (bảng điều khiển) – không quét")
+            return []
+        tat = set(dk.get("tat") or [])
+        strategies = [s for s in strategies if DK.ma_chien_luoc(s) not in tat]
     sent = load(P("da_gui.json"), {})
     state = load(P("trang_thai.json"), {"group_last": {}})
     price_cache, new, errors = {}, [], []
