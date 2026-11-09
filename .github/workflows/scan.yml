@@ -1,7 +1,7 @@
 name: Quét tín hiệu
 on:
   schedule:
-    - cron: "1,16,31,46 * * * *"   # giờ UTC; GitHub có thể chạy trễ vài phút
+    - cron: "23 * * * *"   # dự phòng mỗi giờ; lịch chính 15 phút do Cloudflare (hen_gio/worker.js) gọi
   workflow_dispatch:
 permissions:
   contents: read

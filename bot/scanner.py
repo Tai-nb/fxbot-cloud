@@ -17,6 +17,9 @@ STATE = os.environ.get("STATE_DIR", HERE)          # trạng thái lưu ngoài t
 os.makedirs(STATE, exist_ok=True)
 P = lambda f: os.path.join(STATE, f)
 VN = timezone(timedelta(hours=7))
+TF_MIN = {"M15": 15, "H1": 60, "H4": 240, "D1": 1440}
+QUET_BU_PHUT = int(os.environ.get("QUET_BU_PHUT", 75))   # quét bù nến đóng trong 75 phút gần nhất
+QUET_BU_TOI_DA = 6
 
 
 def now_vn():
@@ -127,18 +130,46 @@ def scan():
             errors.append(f"{s['symbol']} {s['tf']}: thiếu dữ liệu")
             continue
         closed = df.iloc[:-1]
-        side = int(signals(s["strategy"], closed, s["params"]).iloc[-1])
-        bar_time = str(closed.index[-1])
+        sig = signals(s["strategy"], closed, s["params"])
+        # Quét bù: ngoài nến vừa đóng, xét thêm các nến đóng trong QUET_BU_PHUT phút gần đây
+        # (phòng khi lượt quét trước bị lỡ). Nến cũ hơn nến vừa đóng sẽ ghi "báo trễ".
+        tf_min = TF_MIN.get(s["tf"], 60)
+        now_utc0 = datetime.now(timezone.utc)
+        ung_vien = []
+        for k in range(min(QUET_BU_TOI_DA, len(closed)), 0, -1):
+            t = closed.index[-k]
+            dong_luc = _utc(t) + timedelta(minutes=tf_min)
+            if k == 1 or (now_utc0 - dong_luc).total_seconds() / 60 <= QUET_BU_PHUT:
+                ung_vien.append((k, t, dong_luc))
+        for k, t, dong_luc in ung_vien:
+            rec = _xu_ly(s, df, closed, sig, k, t, dong_luc, now_utc0, sent, state, price_cache)
+            if rec:
+                new.append(rec)
+
+    _gui_tat_ca(new)
+    return _ket_thuc(strategies, errors, new, sent, state)
+
+
+def _utc(t):
+    t = t.to_pydatetime() if hasattr(t, "to_pydatetime") else t
+    return t.replace(tzinfo=timezone.utc) if t.tzinfo is None else t.astimezone(timezone.utc)
+
+
+def _xu_ly(s, df, closed, sig, k, t, dong_luc, now_utc0, sent, state, price_cache):
+    if True:
+        side = int(sig.iloc[-k])
+        bar_time = str(t)
         key = f"{s['symbol']}|{s['tf']}|{s['strategy']}|{bar_time}"
         if side == 0 or key in sent:
-            continue
+            return None
         sent[key] = now_vn().strftime("%Y-%m-%d %H:%M")
+        tre = 0 if k == 1 else int((now_utc0 - dong_luc).total_seconds() // 60)
         # ---- Bộ lọc giảm rủi ro ----
         now_utc = datetime.now(timezone.utc)
         ten = f"{D.base(s['symbol'])} {s['tf']} ({'BUY' if side == 1 else 'SELL'})"
         if R.cuoi_tuan(now_utc):
             log(f"Bỏ qua {ten} – sát cuối tuần, tránh khoảng trống giá")
-            continue
+            return None
         tin = R.tin_manh_gan(D.base(s["symbol"]), now_utc)
         canh_bao_tin = ""
         if tin:                                   # vẫn báo, kèm cảnh báo để anh tự cân nhắc
@@ -147,13 +178,13 @@ def scan():
         today = now_vn().strftime("%Y-%m-%d")
         if R.du_lenh_hom_nay(state, today):
             log(f"Bỏ qua {ten} – đã đủ {C.MAX_SIGNALS_PER_DAY} tín hiệu hôm nay")
-            continue
+            return None
         g = group_of(s["symbol"])
         if g:
             last = state["group_last"].get(g)
             if last and now_vn() - datetime.fromisoformat(last) < timedelta(hours=C.GROUP_COOLDOWN_HOURS):
                 log(f"Bỏ qua {s['symbol']} {s['tf']} – nhóm {g} vừa có tín hiệu lúc {last[:16]}")
-                continue
+                return None
             state["group_last"][g] = now_vn().isoformat()
         dem = state.setdefault("dem_ngay", {})
         dem[today] = dem.get(today, 0) + 1
@@ -181,9 +212,17 @@ def scan():
                    risk_pct=C.RISK_PERCENT, strategy=s["name_vi"], bar_close=bar_time,
                    nguon=D.used_ticker(s["symbol"]),
                    backtest=f"thắng {s['test_winrate']}% / {s['test_trades']} lệnh test, kỳ vọng {s['test_exp_r']:+}R",
-                   canh_bao_tin=canh_bao_tin)
-        new.append(rec)
+                   canh_bao_tin=canh_bao_tin, bao_tre_phut=tre)
+        if tre:
+            gia_nen = float(closed["close"].iloc[-k])
+            di = (entry - gia_nen) * (1 if side == 1 else -1)
+            rec["canh_bao_tre"] = (f"\n⏱ BÁO TRỄ {tre} phút (lượt quét trước bị lỡ). Giá lúc nến đóng {gia_nen:.{dg}f}, giờ {entry:.{dg}f}."
+                                   + (" Giá đã chạy quá nửa khoảng tới SL theo hướng lệnh – NÊN BỎ QUA." if di > d / 2 else ""))
+            log(f"Quét bù: {ten} nến {bar_time} – báo trễ {tre} phút")
+        return rec
 
+
+def _gui_tat_ca(new):
     for r in new:
         with open(P("tin_hieu.jsonl"), "a", encoding="utf-8") as f:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
@@ -192,12 +231,17 @@ def scan():
             msg = TG.format_signal(r)
         except Exception:
             msg = json.dumps(r, ensure_ascii=False)
+        if r.get("canh_bao_tre"):
+            msg += r["canh_bao_tre"]
         if r.get("canh_bao_tin"):
             msg += r["canh_bao_tin"]
         if r["nguon"] == "GC=F":
             msg += "\n(Vàng theo giá hợp đồng tương lai GC=F, thường cao hơn giá sàn vài giá – chỉnh entry/SL/TP theo chênh lệch.)"
         send_telegram(msg)
         notify_mac(f"{r['side']} {r['symbol']} {r['tf']}", f"Entry {r['entry']} SL {r['sl']} TP {r['tp']}")
+
+
+def _ket_thuc(strategies, errors, new, sent, state):
 
     # Theo dõi mất kết nối: tất cả cặp đều lỗi dữ liệu = mất mạng / Yahoo lỗi
     if strategies and len(errors) >= len(strategies):

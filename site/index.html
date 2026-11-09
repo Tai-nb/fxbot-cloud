@@ -116,6 +116,7 @@ function render(d) {
     const lv = el("div", "lv");
     [["Entry", s.entry], ["SL", s.sl], ["TP", s.tp], ["Lot", String(s.lot || "").split(" ")[0]]].forEach(([k, v]) => { const x = el("div"); x.append(el("span", null, k), document.createTextNode(v == null || v === "" ? "—" : String(v))); lv.append(x); });
     c.append(head, lv);
+    if (s.canh_bao_tre) c.append(el("div", "warn", s.canh_bao_tre.trim()));
     if (s.canh_bao_tin) c.append(el("div", "warn", s.canh_bao_tin.trim()));
     const lot = String(s.lot || ""); if (lot.includes("VƯỢT MỨC")) c.append(el("div", "warn", lot.slice(lot.indexOf("⚠️"))));
     c.append(el("div", "small", `${s.strategy || ""} · R:R 1:${s.rr} · ${s.backtest || ""}`));
