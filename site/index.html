@@ -173,8 +173,8 @@ footer{color:var(--muted);font-size:12px;margin-top:26px;text-align:center}
           <div class="t"><div><b class="num" id="cdText">--:--</b><span>LƯỢT KẾ TIẾP</span></div></div>
         </div>
         <div>
-          <div style="font-weight:700">Quét mỗi 15 phút</div>
-          <div class="sub">Đồng hồ Cloudflare gọi quét lúc phút :01 :16 :31 :46.</div>
+          <div style="font-weight:700">Quét mỗi 15 phút + lượt riêng cho vàng</div>
+          <div class="sub">Cặp tiền: phút :01 :16 :31 :46 · Vàng: :11 :26 :41 :56 (giá vàng Yahoo trễ 10 phút).</div>
           <div class="sub" id="nextAt"></div>
         </div>
       </div>
@@ -232,7 +232,7 @@ footer{color:var(--muted);font-size:12px;margin-top:26px;text-align:center}
     </div>
   </div>
 
-  <footer>Giá theo Yahoo Finance (vàng theo GC=F), có thể lệch giá Exness – luôn kiểm tra trên MT5 trước khi vào lệnh.<br>
+  <footer>Tín hiệu tính trên nến Yahoo; Entry lấy theo giá giao ngay (Swissquote) ngay lúc gửi – vẫn có thể lệch Exness vài cent, đặt SL/TP theo khoảng cách.<br>
     Bot chỉ báo tín hiệu, không tự đặt lệnh. Thay đổi cài đặt áp dụng từ lượt quét kế tiếp.<br>Phân tích tham khảo, không phải lời khuyên đầu tư.</footer>
 </div>
 <div class="toast" id="toast"></div>
@@ -267,11 +267,12 @@ async function save(fields, msg) {
 }
 
 // ---------- Đồng hồ & đếm ngược ----------
-function nextSlot(now) { // phút 1,16,31,46 mỗi giờ
+function nextSlot(now) { // phút 1,11,16,26,31,41,46,56 mỗi giờ (:x1 cặp tiền, :x6/:x1 vàng)
   const d = new Date(now); d.setSeconds(0, 0);
-  for (let i = 0; i < 70; i++) { const m = d.getMinutes(); if (m % 15 === 1 && d > now) return d; d.setMinutes(m + 1); }
+  for (let i = 0; i < 70; i++) { const m = d.getMinutes(); if ([1, 11, 16, 26, 31, 41, 46, 56].includes(m) && d > now) return d; d.setMinutes(m + 1); }
   return d;
 }
+function prevSlot(nx) { const d = new Date(nx); for (let i = 0; i < 20; i++) { d.setMinutes(d.getMinutes() - 1); if ([1, 11, 16, 26, 31, 41, 46, 56].includes(d.getMinutes())) return d; } return d; }
 function tick() {
   const now = new Date();
   $("clock").textContent = new Date(now.getTime() + VN).toISOString().slice(11, 19);
@@ -279,7 +280,8 @@ function tick() {
   const p = paused();
   $("ring").classList.toggle("paused", p);
   $("cdText").textContent = p ? "TẮT" : `${String(Math.floor(left / 60)).padStart(2, "0")}:${String(Math.floor(left % 60)).padStart(2, "0")}`;
-  $("arc").style.strokeDashoffset = p ? 282.7 : (282.7 * (1 - left / 900)).toFixed(1);
+  const gap = Math.max(60, (nx - prevSlot(nx)) / 1000);
+  $("arc").style.strokeDashoffset = p ? 282.7 : (282.7 * (1 - Math.min(1, left / gap))).toFixed(1);
   $("nextAt").textContent = p ? "Bot đang tắt – không có lượt quét." : `Lượt kế tiếp lúc ${vnStr(nx)}.`;
 }
 
@@ -366,6 +368,8 @@ function renderSignals() {
     const lv = el("div", "lv num");
     [["Entry", s.entry], ["SL", s.sl], ["TP", s.tp], ["Lot", String(s.lot || "").split(" ")[0]]].forEach(([k, v]) => { const x = el("div"); x.append(el("span", null, k), document.createTextNode(v ?? "—")); lv.append(x); });
     c.append(h, lv);
+    if (s.gia_luc) c.append(el("div", "small", `Entry theo giá ${s.side === "BUY" ? "ask" : "bid"} ${s.nguon_gia || ""} lúc ${s.gia_luc} · SL cách ${s.khoang_sl} · TP cách ${s.khoang_tp}` + (s.gia_da_di != null ? ` · từ lúc nến đóng ${s.dong_luc} giá đã đi ${s.gia_da_di > 0 ? "+" : ""}${s.gia_da_di}` : "")));
+    if (s.canh_bao_gia) c.append(el("div", "warn", s.canh_bao_gia.trim()));
     if (s.canh_bao_tre) c.append(el("div", "warn", s.canh_bao_tre.trim()));
     if (s.canh_bao_tin) c.append(el("div", "warn", s.canh_bao_tin.trim()));
     const lot = String(s.lot || ""); if (lot.includes("VƯỢT MỨC")) c.append(el("div", "warn", lot.slice(lot.indexOf("⚠️"))));

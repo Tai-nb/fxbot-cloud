@@ -9,6 +9,7 @@ from datetime import datetime, timezone, timedelta
 import config as C
 import data_yahoo as D
 import bo_loc_rui_ro as R
+import gia_song as GS
 from indicators import atr
 from strategies import signals
 
@@ -127,6 +128,8 @@ def scan():
         strategies = [s for s in strategies if DK.ma_chien_luoc(s) not in tat]
     sent = load(P("da_gui.json"), {})
     state = load(P("trang_thai.json"), {"group_last": {}})
+    if any(D.base(s["symbol"]) == "XAUUSD" for s in strategies):
+        GS.ghi_mau_vang(state, GS.lay("XAUUSD"))      # mẫu giá giao ngay để đo chênh lệch với GC=F
     price_cache, new, errors = {}, [], []
     cache = {}
     for s in strategies:
@@ -203,7 +206,9 @@ def _xu_ly(s, df, closed, sig, k, t, dong_luc, now_utc0, sent, state, price_cach
         state["dem_ngay"] = dict(list(dem.items())[-14:])
         a = float(atr(closed, C.ATR_PERIOD).iloc[-1])
         d = s["sl_atr"] * a
-        entry = float(df["close"].iloc[-1])
+        b = D.base(s["symbol"])
+        q = GS.lay(b)                               # giá giao ngay ngay lúc gửi tin (sát giá Exness)
+        entry = (q["ask"] if side == 1 else q["bid"]) if q else float(df["close"].iloc[-1])
         sl = entry - d if side == 1 else entry + d
         tp = entry + s["rr"] * d if side == 1 else entry - s["rr"] * d
         dg = 2 if D.base(s["symbol"]).startswith("XAU") else (3 if "JPY" in D.base(s["symbol"]) else 5)
@@ -224,14 +229,39 @@ def _xu_ly(s, df, closed, sig, k, t, dong_luc, now_utc0, sent, state, price_cach
                    risk_pct=C.RISK_PERCENT, strategy=s["name_vi"], bar_close=bar_time,
                    nguon=D.used_ticker(s["symbol"]),
                    backtest=f"thắng {s['test_winrate']}% / {s['test_trades']} lệnh test, kỳ vọng {s['test_exp_r']:+}R",
-                   canh_bao_tin=canh_bao_tin, bao_tre_phut=tre)
-        if tre:
-            gia_nen = float(closed["close"].iloc[-k])
+                   canh_bao_tin=canh_bao_tin, bao_tre_phut=tre,
+                   khoang_sl=round(d, dg), khoang_tp=round(s["rr"] * d, dg),
+                   gia_luc=(q["luc"].astimezone(VN).strftime("%H:%M:%S") if q else ""),
+                   nguon_gia=(q["nguon"] + " giao ngay" if q else "Yahoo – có thể lệch giá sàn"))
+        # Giá đã chạy bao nhiêu kể từ lúc nến tín hiệu đóng (ước tính theo giá giao ngay)
+        gia_nen = float(closed["close"].iloc[-k])
+        if q and b == "XAUUSD":
+            cl = GS.chenh_lech_vang(state, _gc_1m())
+            gia_nen = gia_nen - cl if cl is not None else None
+        if gia_nen is not None:
             di = (entry - gia_nen) * (1 if side == 1 else -1)
-            rec["canh_bao_tre"] = (f"\n⏱ BÁO TRỄ {tre} phút (lượt quét trước bị lỡ). Giá lúc nến đóng {gia_nen:.{dg}f}, giờ {entry:.{dg}f}."
-                                   + (" Giá đã chạy quá nửa khoảng tới SL theo hướng lệnh – NÊN BỎ QUA." if di > d / 2 else ""))
+            rec["gia_da_di"] = round(di, dg)
+            rec["dong_luc"] = dong_luc.astimezone(VN).strftime("%H:%M")
+            if di > d / 2:
+                rec["canh_bao_gia"] = (f"\n⛔ Giá đã chạy {di:.{dg}f} theo hướng lệnh từ lúc nến đóng ({rec['dong_luc']}), "
+                                       f"quá nửa khoảng SL ({d:.{dg}f}) – NÊN BỎ QUA, chờ tín hiệu sau.")
+        if tre:
+            rec["canh_bao_tre"] = f"\n⏱ BÁO TRỄ {tre} phút (lượt quét trước bị lỡ)."
             log(f"Quét bù: {ten} nến {bar_time} – báo trễ {tre} phút")
         return rec
+
+
+_GC1M = {}
+
+
+def _gc_1m():
+    """Nến 1 phút GC=F (tải 1 lần mỗi lượt quét) – để đo chênh lệch tương lai/giao ngay."""
+    if "df" not in _GC1M:
+        try:
+            _GC1M["df"] = D._download("GC=F", "1m", "1d", tries=1)
+        except Exception:
+            _GC1M["df"] = None
+    return _GC1M["df"]
 
 
 def _gui_tat_ca(new):
@@ -247,8 +277,10 @@ def _gui_tat_ca(new):
             msg += r["canh_bao_tre"]
         if r.get("canh_bao_tin"):
             msg += r["canh_bao_tin"]
-        if r["nguon"] == "GC=F":
-            msg += "\n(Vàng theo giá hợp đồng tương lai GC=F, thường cao hơn giá sàn vài giá – chỉnh entry/SL/TP theo chênh lệch.)"
+        if r.get("canh_bao_gia"):
+            msg += r["canh_bao_gia"]
+        if r["nguon"] == "GC=F" and not r.get("gia_luc"):
+            msg += "\n(Không lấy được giá giao ngay – Entry đang theo giá tương lai GC=F, thường cao hơn giá sàn vài giá. Giữ đúng KHOẢNG CÁCH SL/TP.)"
         send_telegram(msg)
         notify_mac(f"{r['side']} {r['symbol']} {r['tf']}", f"Entry {r['entry']} SL {r['sl']} TP {r['tp']}")
 
@@ -284,8 +316,14 @@ def test():
         else:
             lines.append(f"✅ {D.base(s['symbol'])} {s['tf']}: {len(df)} nến, nến cuối {df.index[-1]:%d/%m %H:%M} UTC, "
                          f"giá {df['close'].iloc[-1]:.5g} ({D.used_ticker(s['symbol'])})")
+    lines.append("\nGiá giao ngay (dùng làm Entry trong tin):")
+    for b in sorted({D.base(s["symbol"]) for s in load(os.path.join(HERE, "chien_luoc_tot_nhat.json"), [])}):
+        q = GS.lay(b)
+        lines.append(f"• {b}: bid {q['bid']:g} / ask {q['ask']:g} ({q['nguon']} {q['luc'].astimezone(VN):%H:%M:%S})" if q
+                     else f"• {b}: ❌ không lấy được giá giao ngay")
     print("\n".join(lines))
-    send_telegram("✅ FXBot trên MacBook đã chạy.\n" + "\n".join(lines))
+    noi = "trên máy chủ GitHub" if os.environ.get("GITHUB_ACTIONS") else "trên MacBook"
+    send_telegram(f"✅ FXBot {noi} đã chạy.\n" + "\n".join(lines))
     notify_mac("FXBot", "Đã cài xong trên MacBook – Telegram đã gửi tin thử")
 
 

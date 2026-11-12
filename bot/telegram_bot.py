@@ -67,12 +67,21 @@ def send(text):
 
 def format_signal(r):
     icon = "🟢" if r["side"] == "BUY" else "🔴"
-    return (f"{icon} {r['side']} {r['symbol']} {r['tf']}\n"
-            f"Entry: {r['entry']}\nSL: {r['sl']}\nTP: {r['tp']}  (R:R 1:{r['rr']:g})\n"
-            f"Lot: {r['lot']}  (rủi ro {r['risk_pct']}%)\n"
+    gia = ("mua (ask)" if r["side"] == "BUY" else "bán (bid)")
+    entry = f"Entry: {r['entry']}"
+    if r.get("gia_luc"):
+        entry += f"  (giá {gia} giao ngay lúc {r['gia_luc']})"
+    ksl, ktp = r.get("khoang_sl"), r.get("khoang_tp")
+    sl = f"SL: {r['sl']}" + (f"  (cách {ksl})" if ksl else "")
+    tp = f"TP: {r['tp']}" + (f"  (cách {ktp}, R:R 1:{r['rr']:g})" if ktp else f"  (R:R 1:{r['rr']:g})")
+    di = ""
+    if r.get("gia_da_di") is not None and r.get("dong_luc"):
+        di = f"Nến đóng {r['dong_luc']} · từ đó giá đã đi {r['gia_da_di']:+g} theo hướng lệnh\n"
+    return (f"{icon} {r['side']} {r['symbol']} {r['tf']}\n{entry}\n{sl}\n{tp}\n"
+            f"Lot: {r['lot']}  (rủi ro {r['risk_pct']}%)\n{di}"
             f"Chiến lược: {r['strategy']}\nBacktest: {r['backtest']}\n"
             f"Giờ: {r['time_vn']}\n\n"
-            "⚠️ Giá theo Yahoo, kiểm tra lại giá trên MT5 trước khi vào. Không vào nếu giá đã lệch quá nửa khoảng cách tới SL. "
+            "⚠️ Giá trên MT5 có thể lệch vài cent so với nguồn này: vào theo giá thị trường rồi đặt SL/TP đúng KHOẢNG CÁCH ở trên. "
             "Tránh 30 phút quanh tin mạnh.\nPhân tích tham khảo, không phải lời khuyên đầu tư.")
 
 

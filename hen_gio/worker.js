@@ -1,5 +1,5 @@
 // Công nhân Cloudflare "fxbot-hen-gio"
-// 1) Đồng hồ: đúng phút 1, 16, 31, 46 mỗi giờ gọi GitHub chạy workflow "Quét tín hiệu" (trừ khi anh tạm dừng bot).
+// 1) Đồng hồ: phút 1, 11, 16, 26, 31, 41, 46, 56 mỗi giờ (cặp tiền :x1/:x6, vàng chờ thêm 10 phút vì giá Yahoo trễ) gọi GitHub chạy workflow "Quét tín hiệu" (trừ khi anh tạm dừng bot).
 // 2) Nhận lệnh từ bảng điều khiển (chỉ qua service binding của Pages, đã tắt địa chỉ workers.dev):
 //    POST /quet-ngay, POST /thu-telegram, GET /trang-thai
 // Cần secret GH_TOKEN: token GitHub fine-grained, chỉ quyền Actions: Read and write trên kho fxbot-cloud.
